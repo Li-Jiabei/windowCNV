@@ -521,7 +521,6 @@ def evaluate_cnv_with_window(
     inferred = adata.obsm[f"X_{cnv_inferred_key}"]
     if issparse(inferred):
         inferred = inferred.toarray()
-    inferred /= (np.std(inferred) + 1e-6)
 
     chr_pos_dict = dict(sorted(adata.uns[cnv_inferred_key]["chr_pos"].items(), key=lambda x: x[1]))
     window_index_map = []
@@ -581,9 +580,12 @@ def evaluate_cnv_with_window(
                 win_vals = inferred[row_idx, win_idxs]
                 max_val = win_vals.max()
                 min_val = win_vals.min()
-                pred = "gain" if abs(max_val) > abs(min_val) and max_val > threshold_std else (
-                    "loss" if abs(max_val) <= abs(min_val) and min_val < -threshold_std else "no_change"
+                
+                thresh = threshold_std * np.std(inferred)  # Apply threshold on original scale
+                pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
+                    "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
                 )
+
                 pred_label = int(pred == gt)
                 if key not in grouped_results:
                     grouped_results[key] = {"true": [], "pred": []}
@@ -598,9 +600,12 @@ def evaluate_cnv_with_window(
             win_vals = inferred[row_idx, win_idxs]
             max_val = win_vals.max()
             min_val = win_vals.min()
-            pred = "gain" if abs(max_val) > abs(min_val) and max_val > threshold_std else (
-                "loss" if abs(max_val) <= abs(min_val) and min_val < -threshold_std else "no_change"
+            
+            thresh = threshold_std * np.std(inferred)  # Apply threshold on original scale
+            pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
+                "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
             )
+
             if pred == "no_change":
                 continue
 
