@@ -259,84 +259,94 @@ def _infercnv_chunk(
     return chr_pos, x_res, None
 
 # --- CNA Assignment ---
+from joblib import Parallel, delayed
+from scipy.sparse import issparse
+import numpy as np
+import pandas as pd
+from tqdm.auto import tqdm
 
 def assign_cnas_to_cells_parallel(
     adata,
     cnv_key: str = "cnv",
-    threshold_std: float = 1.5,
+    gain_percentile: float = 30,
+    loss_percentile: float = 30,
     output_key: str = "called_cnas",
-    n_jobs: int = -1,  # Use all available cores by default
+    n_jobs: int = -1,
 ):
     """
-    Parallelized CNA assignment to each cell using joblib.
-    Stores list of (chr, start, end, type) in adata.obs[output_key]
+    Assign CNAs based on percentile thresholds (most extreme 30% by default).
+    Stores list of (chr, start, end, type) in adata.obs[output_key].
 
     Parameters
     ----------
     adata : AnnData
-        AnnData object with per-cell CNV scores in `.obsm['X_<cnv_key>']`
-        and genomic position info in `.uns[cnv_key]['chr_pos']`.
+        AnnData object with per-cell CNV scores in `.obsm['X_<cnv_key>']`.
     cnv_key : str
-        Key for CNV signal matrix (default: "cnv" → adata.obsm["X_cnv"])
-    threshold_std : float
-        Threshold in units of standard deviation to call gain/loss.
+        Key for CNV signal matrix (default: "cnv" → adata.obsm["X_cnv"]).
+    gain_percentile : float
+        Percentile of most positive values to consider as gain (e.g., 30 → top 30% of positives).
+    loss_percentile : float
+        Percentile of most negative values to consider as loss (e.g., 30 → bottom 30% of negatives).
     output_key : str
-        Column in adata.obs where output CNA calls will be stored.
+        Key to store result in `adata.obs`.
     n_jobs : int
-        Number of parallel jobs (-1 means all cores).
+        Number of parallel workers (default: all).
     """
 
-    # Load CNV signal matrix
+    # Load CNV signal
     cnv = adata.obsm[f"X_{cnv_key}"]
     if issparse(cnv):
-        cnv = cnv.toarray()  # Convert sparse to dense if needed
+        cnv = cnv.toarray()
 
-    # Normalize CNV matrix by standard deviation
-    cnv_std = cnv / (np.std(cnv) + 1e-6)  # small epsilon to avoid division by zero
+    flat_vals = cnv.flatten()
+    pos_vals = flat_vals[flat_vals > 0]
+    neg_vals = flat_vals[flat_vals < 0]
 
-    # Chromosome positions as stored in .uns
-    chr_pos = adata.uns[cnv_key]["chr_pos"]  # dict: {chrom: start_idx}
-    chr_list = list(chr_pos.keys())          # list of chromosome names
-    chr_starts = list(chr_pos.values())      # list of starting indices for each chrom
+    # Compute thresholds from specified percentiles of pos/neg only
+    gain_threshold = np.percentile(pos_vals, 100 - gain_percentile) if len(pos_vals) else np.inf
+    loss_threshold = np.percentile(neg_vals, loss_percentile) if len(neg_vals) else -np.inf
 
-    # Build index slices for each chromosome in the matrix
+    print(f"[INFO] Gain threshold: > {gain_threshold:.4f}")
+    print(f"[INFO] Loss threshold: < {loss_threshold:.4f}")
+
+    # Position indices by chromosome
+    chr_pos = adata.uns[cnv_key]["chr_pos"]
+    chr_list = list(chr_pos.keys())
+    chr_starts = list(chr_pos.values())
     chr_slices = {
         chrom: (chr_starts[i], chr_starts[i+1] if i+1 < len(chr_starts) else cnv.shape[1])
         for i, chrom in enumerate(chr_list)
     }
 
-    # Load gene positional metadata
     gene_windows = adata.var.loc[:, ["chromosome", "start", "end"]].reset_index(drop=True)
-
-    # In case gene_windows is shorter than number of columns (due to smoothing etc.)
     if len(gene_windows) < cnv.shape[1]:
         gene_windows = pd.concat(
             [gene_windows] * (cnv.shape[1] // len(gene_windows) + 1),
             ignore_index=True
         )
-    gene_windows = gene_windows.iloc[:cnv.shape[1]]  # trim to correct shape
+    gene_windows = gene_windows.iloc[:cnv.shape[1]]
 
-    # Define function to process one cell
     def process_cell(cell_idx):
         events = []
         for chrom, (start_idx, end_idx) in chr_slices.items():
             for i in range(start_idx, end_idx):
-                score = cnv_std[cell_idx, i]
-                if score > threshold_std or score < -threshold_std:
-                    event_type = "gain" if score > 0 else "loss"
-                    start = gene_windows.iloc[i]["start"]
-                    stop = gene_windows.iloc[i]["end"]
-                    events.append((chrom, int(start), int(stop), event_type))
+                score = cnv[cell_idx, i]
+                if score > gain_threshold:
+                    event_type = "gain"
+                elif score < loss_threshold:
+                    event_type = "loss"
+                else:
+                    continue
+                start = gene_windows.iloc[i]["start"]
+                stop = gene_windows.iloc[i]["end"]
+                events.append((chrom, int(start), int(stop), event_type))
         return events
 
-    # Inform user about parallelism
     print(f"Assigning CNAs using {n_jobs if n_jobs > 0 else 'all'} cores...")
 
-    from tqdm.auto import tqdm
-    # Run CNA assignment in parallel across all cells
     cell_cnas = Parallel(n_jobs=n_jobs)(
         delayed(process_cell)(i) for i in tqdm(range(cnv.shape[0]), desc="Parallel CNA assignment")
     )
 
-    # Store result in adata.obs
     adata.obs[output_key] = cell_cnas
+
