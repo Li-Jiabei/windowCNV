@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import seaborn as sns
+import scanpy as sc
 from scipy.sparse import issparse
 import re
 import os
