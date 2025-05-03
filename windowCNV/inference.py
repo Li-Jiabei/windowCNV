@@ -32,9 +32,7 @@ def infercnv(
     inplace: bool = True,
     layer: str | None = None,
     key_added: str = "cnv",
-    calculate_gene_values: bool = False,
-    two_step_refinement: bool = False, 
-    low_variance_quantile: float = 0.3, 
+    calculate_gene_values: bool = False
 )-> None | tuple[dict, scipy.sparse.csr_matrix, np.ndarray | None]:
     """Infer Copy Number Variation (CNV) by averaging gene expression over genomic regions.
 
@@ -111,14 +109,15 @@ def infercnv(
         raise ValueError(
             "Genomic positions not found. There need to be `chromosome`, `start`, and `end` columns in `adata.var`. "
         )
-    # 🆕 Auto-add "chr" if missing
-    if adata.var["chromosome"].dtype == object:
-        unique_chroms = adata.var["chromosome"].dropna().unique()
-        if all(not str(chrom).startswith("chr") for chrom in unique_chroms):
-            logging.info("Auto-adding 'chr' prefix to chromosome names...")
-            adata.var["chromosome"] = adata.var["chromosome"].apply(
-                lambda x: f"chr{x}" if pd.notna(x) else x
-            )
+    
+    # Ensure chromosomes start with 'chr'
+    adata.var['chromosome'] = adata.var['chromosome'].apply(
+        lambda x: x if str(x).startswith('chr') else f'chr{x}' if pd.notna(x) else x
+    )
+    
+    # Keep only standard human chromosomes: chr1–chr22, chrX, chrY
+    standard_chromosomes = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY']
+    adata = adata[:, adata.var['chromosome'].isin(standard_chromosomes)].copy()
 
     var_mask = adata.var["chromosome"].isnull()
     if np.sum(var_mask):
@@ -142,34 +141,7 @@ def infercnv(
     var = tmp_adata.var.loc[:, ["chromosome", "start", "end"]]
 
     # === Reference selection and normalization ===
-    if two_step_refinement:
-        logging.info("Running two-step refinement using low-variance reference...")
-        mean_expr = np.mean(expr, axis=0)
-        std_expr = np.std(expr, axis=0) + 1e-6
-        expr_z = (expr - mean_expr) / std_expr
-
-        chr_pos, rough_cnv, _ = _infercnv_chunk(
-            expr_z,
-            var,
-            reference,
-            lfc_cap=lfc_clip,
-            window_distance=window_distance,
-            min_genes_per_window=min_genes_per_window,
-            dynamic_threshold=dynamic_threshold,
-            smooth=True
-        )
-
-        rough_cnv = rough_cnv.toarray()
-        cell_vars = np.var(rough_cnv, axis=1)
-        threshold = np.quantile(cell_vars, low_variance_quantile)
-        stable_mask = cell_vars <= threshold
-
-        if not np.any(stable_mask):
-            raise ValueError("No low-variance cells selected. Try raising quantile.")
-
-        reference = np.mean(expr[stable_mask, :], axis=0, keepdims=True)
-        logging.info(f"Selected {np.sum(stable_mask)} cells for refined reference.")
-    elif normalization_mode == "reference":
+    if normalization_mode == "reference":
         reference = _get_reference(tmp_adata, reference_key, reference_cat, reference)
     elif normalization_mode == "auto":
         logging.info("Using in-built average reference from all cells.")
