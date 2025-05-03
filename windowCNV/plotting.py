@@ -513,32 +513,24 @@ def evaluate_cnv_inference_aligned(
 # --- Evaluation: Groundtruth vs inferred, with our window ---
 import numpy as np
 import pandas as pd
-import re
 import matplotlib.pyplot as plt
 import seaborn as sns
+import re
 from scipy.sparse import issparse
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
+# Define the modified function based on direct threshold comparison
 def evaluate_cnv_with_window(
     adata,
     celltype_key='cell_type',
     cnv_truth_key='simulated_cnvs',
     cnv_inferred_key='cnv',
-    threshold_std=1.0
+    threshold=0.5  # Use fixed absolute threshold (manually chosen)
 ):
     inferred = adata.obsm[f"X_{cnv_inferred_key}"]
     if issparse(inferred):
         inferred = inferred.toarray()
 
-    # Compute threshold ONCE using original scale
-    thresh = threshold_std * np.std(inferred)
-
-
-    
-    print(f"‼️[DEBUG] threshold_std = {threshold_std}, std = {np.std(inferred):.6f}, thresh = {thresh:.6f}")
-
-
-    
     chr_pos_dict = dict(sorted(adata.uns[cnv_inferred_key]["chr_pos"].items(), key=lambda x: x[1]))
     window_index_map = []
     chr_keys = list(chr_pos_dict.keys())
@@ -559,10 +551,9 @@ def evaluate_cnv_with_window(
     for idx, row in adata.obs.iterrows():
         ct = row[celltype_key]
         annots = row.get(cnv_truth_key, "")
-        row_idx = adata.obs_names.get_loc(idx)
         if isinstance(annots, str) and annots.strip() != "":
             matches = re.findall(pattern, annots)
-            for chrom, start, end, cn in matches:
+            for chrom, _, _, cn in matches:
                 chrom = f"chr{chrom}" if not chrom.startswith("chr") else chrom
                 cn = int(cn)
                 if cn == 2:
@@ -577,7 +568,7 @@ def evaluate_cnv_with_window(
 
         if isinstance(annots, str) and annots.strip() != "":
             matches = re.findall(pattern, annots)
-            for chrom, start, end, cn in matches:
+            for chrom, _, _, cn in matches:
                 chrom = f"chr{chrom}" if not chrom.startswith("chr") else chrom
                 cn = int(cn)
                 if cn == 2:
@@ -587,22 +578,14 @@ def evaluate_cnv_with_window(
                 key = (ct, chrom, cn, gt)
                 if len(win_idxs) == 0:
                     if key not in printed_exclusions:
-                        print(f"Excluded GT CNV event due to missing chromosome: {key}")
                         printed_exclusions.add(key)
                     excluded_event_keys.add(key)
                     continue
                 win_vals = inferred[row_idx, win_idxs]
-
-                max_val = win_vals.max()
-                min_val = win_vals.min()
-
-                print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
-
-                
-                pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
-                    "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
+                score = win_vals.mean()
+                pred = "gain" if score > threshold else (
+                    "loss" if score < -threshold else "no_change"
                 )
-
                 pred_label = int(pred == gt)
                 if key not in grouped_results:
                     grouped_results[key] = {"true": [], "pred": []}
@@ -614,17 +597,10 @@ def evaluate_cnv_with_window(
             if len(win_idxs) == 0:
                 continue
             win_vals = inferred[row_idx, win_idxs]
-
-            max_val = win_vals.max()
-            min_val = win_vals.min()
-
-            print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
-
-            
-            pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
-                "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
+            score = win_vals.mean()
+            pred = "gain" if score > threshold else (
+                "loss" if score < -threshold else "no_change"
             )
-
             if pred == "no_change":
                 continue
             for ct_gt, chr_gt, cn_gt, gt_label in gt_event_set:
@@ -702,11 +678,7 @@ def evaluate_cnv_with_window(
     plt.tight_layout()
     plt.show()
 
-
-
     n_predicted = sum([sum(x['pred']) for x in grouped_results.values()])
-    print(f"‼️[DEBUG] Total predicted CNVs: {n_predicted}")
+    print(f"[INFO] Total predicted CNVs: {n_predicted}")
 
     return df, excluded_event_keys
-
-
