@@ -6,41 +6,54 @@ from anndata import AnnData
 import logging
 
 
-def find_reference_candidates(
-    adata: AnnData,
-    reference_key: str = "cell_type",
-    top_n: int = 5
-) -> list[str]:
+def find_reference_candidates(adata: AnnData, reference_key: str = "cell_type", top_n: int = 5):
     """
-    Identify candidate reference cell types based on lowest average variance.
+    Find reference cell types based on lowest average variance across all genes/features.
 
     Parameters
     ----------
     adata : AnnData
-        Annotated data matrix.
+        AnnData object containing gene expression (or CNV scores) in `.X` and annotations in `.obs`.
     reference_key : str
-        Column in adata.obs containing cell type labels.
+        Column in `.obs` used to group cells (typically 'cell_type').
     top_n : int
-        Number of top reference candidates to return.
+        Number of lowest-variance cell types to return.
 
     Returns
     -------
-    List of cell type names with lowest average expression variance.
+    List[str]
+        Names of the top_n lowest-variance categories.
     """
+
+    # Get unique categories (e.g., all cell types)
     categories = adata.obs[reference_key].unique()
+
     results = []
+
+    # Iterate over each category
     for cat in categories:
+        # Select cells belonging to the current category
         subset = adata[adata.obs[reference_key] == cat].X
+
+        # Convert to dense if sparse
         if scipy.sparse.issparse(subset):
             subset = subset.toarray()
+
+        # Calculate average variance across genes/features
         avg_var = np.var(subset, axis=0).mean()
+
+        # Store result: (category name, average variance)
         results.append((cat, avg_var))
+
+    # Sort categories by ascending average variance
     results.sort(key=lambda x: x[1])
 
-    logging.info(f"Top {top_n} reference candidates based on variance:")
+    # Print out the top N
+    print(f"\nTop {top_n} lowest-variance cell types:\n")
     for cat, var in results[:top_n]:
-        logging.info(f"{cat}: avg variance = {var:.4f}")
-    
+        print(f"{cat}: avg variance = {var:.4f}")
+
+    # Return list of top N category names
     return [cat for cat, _ in results[:top_n]]
 
 
@@ -50,31 +63,20 @@ def _get_reference(
     reference_cat: None | str | Sequence[str],
     reference: np.ndarray | None,
 ) -> np.ndarray:
-    """
-    Extract reference gene expression profile.
+    """Parameter validation extraction of reference gene expression.
 
-    Parameters
-    ----------
-    adata : AnnData
-        Annotated data matrix.
-    reference_key : str or None
-        Column in adata.obs with reference labels.
-    reference_cat : str, list of str, or None
-        Category/categories in `reference_key` that indicate reference cells.
-    reference : np.ndarray or None
-        Precomputed reference matrix (overrides other inputs).
+    If multiple reference categories are given, compute the mean per
+    category.
 
-    Returns
-    -------
-    np.ndarray
-        2D array of reference expression (n_refs x n_genes).
+    Returns a 2D array with reference categories in rows, cells in columns.
+    If there's just one category, it's still a 2D array.
     """
     if reference is None:
         if reference_key is None or reference_cat is None:
             logging.warning(
                 "Using mean of all cells as reference. For better results, "
-                "provide either `reference`, or both `reference_key` and `reference_cat`."
-            )
+                "provide either `reference`, or both `reference_key` and `reference_cat`. "
+            )  # type: ignore
             reference = np.mean(adata.X, axis=0)
 
         else:
@@ -86,19 +88,17 @@ def _get_reference(
             if not np.all(reference_cat_in_obs):
                 raise ValueError(
                     "The following reference categories were not found in "
-                    f"adata.obs[{reference_key!r}]: {reference_cat[~reference_cat_in_obs]}"
+                    "adata.obs[reference_key]: "
+                    f"{reference_cat[~reference_cat_in_obs]}"
                 )
 
-            reference = np.vstack([
-                np.mean(adata.X[obs_col.values == cat, :], axis=0)
-                for cat in reference_cat
-            ])
+            reference = np.vstack([np.mean(adata.X[obs_col.values == cat, :], axis=0) for cat in reference_cat])
 
     if reference.ndim == 1:
         reference = reference[np.newaxis, :]
 
     if reference.shape[1] != adata.shape[1]:
-        raise ValueError("Reference must match the number of genes in AnnData.")
+        raise ValueError("Reference must match the number of genes in AnnData. ")
 
     return reference
 
