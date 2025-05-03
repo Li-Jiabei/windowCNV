@@ -7,6 +7,7 @@ import matplotlib.colors as mcolors
 import seaborn as sns
 from scipy.sparse import issparse
 import re
+import os
 
 # --- Plotting: Heatmap of inferred CNV per cell ---
 def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", save_dir="./figures", save=True):
