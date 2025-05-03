@@ -20,7 +20,7 @@ def infercnv(
     reference_key: str | None = None,
     reference_cat: None | str | Sequence[str] = None,
     reference: np.ndarray | None = None,
-    normalization_mode: str = "reference",  # 🆕 ADD
+    normalization_mode: str = "reference",
     lfc_clip: float = 3,
     window_distance: float = 5e6,
     min_genes_per_window: int = 5,
@@ -33,8 +33,8 @@ def infercnv(
     layer: str | None = None,
     key_added: str = "cnv",
     calculate_gene_values: bool = False,
-    two_step_refinement: bool = False,      # 🆕 ADD
-    low_variance_quantile: float = 0.3,     # 🆕 ADD
+    two_step_refinement: bool = False, 
+    low_variance_quantile: float = 0.3, 
 )-> None | tuple[dict, scipy.sparse.csr_matrix, np.ndarray | None]:
     """Infer Copy Number Variation (CNV) by averaging gene expression over genomic regions.
 
