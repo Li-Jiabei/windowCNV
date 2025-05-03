@@ -533,6 +533,12 @@ def evaluate_cnv_with_window(
     # Compute threshold ONCE using original scale
     thresh = threshold_std * np.std(inferred)
 
+
+    
+    print(f"‼️[DEBUG] threshold_std = {threshold_std}, std = {np.std(inferred):.6f}, thresh = {thresh:.6f}")
+
+
+    
     chr_pos_dict = dict(sorted(adata.uns[cnv_inferred_key]["chr_pos"].items(), key=lambda x: x[1]))
     window_index_map = []
     chr_keys = list(chr_pos_dict.keys())
@@ -586,7 +592,10 @@ def evaluate_cnv_with_window(
                     excluded_event_keys.add(key)
                     continue
                 win_vals = inferred[row_idx, win_idxs]
-                
+
+
+                print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
+
                 max_val = win_vals.max()
                 min_val = win_vals.min()
                 pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
@@ -604,7 +613,9 @@ def evaluate_cnv_with_window(
             if len(win_idxs) == 0:
                 continue
             win_vals = inferred[row_idx, win_idxs]
-            
+
+            print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
+
             max_val = win_vals.max()
             min_val = win_vals.min()
             pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
@@ -687,6 +698,11 @@ def evaluate_cnv_with_window(
     plt.title("CNV Inference Metrics per Event (Window-based)")
     plt.tight_layout()
     plt.show()
+
+
+
+    n_predicted = sum([sum(x['pred']) for x in grouped_results.values()])
+    print(f"‼️[DEBUG] Total predicted CNVs: {n_predicted}")
 
     return df, excluded_event_keys
 
