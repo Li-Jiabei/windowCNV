@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import scipy.sparse
+import re
 from typing import Sequence
 
 from anndata import AnnData
