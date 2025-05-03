@@ -525,12 +525,22 @@ def evaluate_cnv_with_window(
     celltype_key='cell_type',
     cnv_truth_key='simulated_cnvs',
     cnv_inferred_key='cnv',
-    threshold=0.5  # Use fixed absolute threshold (manually chosen)
+    gain_percentile=95,   # e.g., top 5% = gain
+    loss_percentile=5     # e.g., bottom 5% = loss
 ):
     inferred = adata.obsm[f"X_{cnv_inferred_key}"]
     if issparse(inferred):
         inferred = inferred.toarray()
 
+    # Flatten and calculate thresholds
+    flat_vals = inferred.flatten()
+    gain_thresh = np.percentile(flat_vals[flat_vals > 0], gain_percentile)
+    loss_thresh = np.percentile(flat_vals[flat_vals < 0], loss_percentile)
+
+    print(f"[INFO] Gain threshold: > {gain_thresh:.4f}")
+    print(f"[INFO] Loss threshold: < {loss_thresh:.4f}")
+
+    # Prepare window lookup
     chr_pos_dict = dict(sorted(adata.uns[cnv_inferred_key]["chr_pos"].items(), key=lambda x: x[1]))
     window_index_map = []
     chr_keys = list(chr_pos_dict.keys())
@@ -542,12 +552,14 @@ def evaluate_cnv_with_window(
             window_index_map.append((chrom, j))
     window_df = pd.DataFrame(window_index_map, columns=["chromosome", "matrix_idx"])
 
+    # Pattern and init
     pattern = r"(\w+):(\d+)-(\d+)\s+\(CN\s+(\d)\)"
     grouped_results = {}
     excluded_event_keys = set()
     printed_exclusions = set()
     gt_event_set = set()
 
+    # Parse GT annotations
     for idx, row in adata.obs.iterrows():
         ct = row[celltype_key]
         annots = row.get(cnv_truth_key, "")
@@ -561,11 +573,13 @@ def evaluate_cnv_with_window(
                 gt = "gain" if cn > 2 else "loss"
                 gt_event_set.add((ct, chrom, cn, gt))
 
+    # Score and classify
     for idx, row in adata.obs.iterrows():
         ct = row[celltype_key]
         annots = row.get(cnv_truth_key, "")
         row_idx = adata.obs_names.get_loc(idx)
 
+        # GT evaluation
         if isinstance(annots, str) and annots.strip() != "":
             matches = re.findall(pattern, annots)
             for chrom, _, _, cn in matches:
@@ -583,8 +597,8 @@ def evaluate_cnv_with_window(
                     continue
                 win_vals = inferred[row_idx, win_idxs]
                 score = win_vals.mean()
-                pred = "gain" if score > threshold else (
-                    "loss" if score < -threshold else "no_change"
+                pred = "gain" if score > gain_thresh else (
+                    "loss" if score < loss_thresh else "no_change"
                 )
                 pred_label = int(pred == gt)
                 if key not in grouped_results:
@@ -592,14 +606,15 @@ def evaluate_cnv_with_window(
                 grouped_results[key]["true"].append(1)
                 grouped_results[key]["pred"].append(pred_label)
 
+        # FP evaluation
         for chrom in window_df["chromosome"].unique():
             win_idxs = window_df[window_df["chromosome"] == chrom]["matrix_idx"].values
             if len(win_idxs) == 0:
                 continue
             win_vals = inferred[row_idx, win_idxs]
             score = win_vals.mean()
-            pred = "gain" if score > threshold else (
-                "loss" if score < -threshold else "no_change"
+            pred = "gain" if score > gain_thresh else (
+                "loss" if score < loss_thresh else "no_change"
             )
             if pred == "no_change":
                 continue
@@ -612,24 +627,17 @@ def evaluate_cnv_with_window(
                         grouped_results[key]["true"].append(0)
                         grouped_results[key]["pred"].append(1)
 
+    # Build final dataframe
     metrics_rows = []
     all_keys = gt_event_set.union(excluded_event_keys)
     for key in sorted(all_keys):
         ct, chrom, cn, gt = key
         if key in excluded_event_keys:
             metrics_rows.append({
-                "cell_type": ct,
-                "chromosome": chrom,
-                "CN": cn,
-                "groundtruth": gt,
-                "TP": None,
-                "FP": None,
-                "FN": None,
-                "precision": None,
-                "recall": None,
-                "f1": None,
-                "accuracy": None,
-                "n_events": 0
+                "cell_type": ct, "chromosome": chrom, "CN": cn, "groundtruth": gt,
+                "TP": None, "FP": None, "FN": None,
+                "precision": None, "recall": None, "f1": None,
+                "accuracy": None, "n_events": 0
             })
         else:
             y_true = grouped_results[key]["true"]
@@ -638,13 +646,8 @@ def evaluate_cnv_with_window(
             FP = sum(1 for t, p in zip(y_true, y_pred) if t == 0 and p == 1)
             FN = sum(1 for t, p in zip(y_true, y_pred) if t == 1 and p == 0)
             metrics_rows.append({
-                "cell_type": ct,
-                "chromosome": chrom,
-                "CN": cn,
-                "groundtruth": gt,
-                "TP": TP,
-                "FP": FP,
-                "FN": FN,
+                "cell_type": ct, "chromosome": chrom, "CN": cn, "groundtruth": gt,
+                "TP": TP, "FP": FP, "FN": FN,
                 "precision": precision_score(y_true, y_pred, zero_division=0),
                 "recall": recall_score(y_true, y_pred, zero_division=0),
                 "f1": f1_score(y_true, y_pred, zero_division=0),
@@ -663,16 +666,10 @@ def evaluate_cnv_with_window(
 
     plt.figure(figsize=(10, 1 * len(heatmap_df)))
     sns.heatmap(
-        heatmap_df,
-        annot=True,
-        fmt=".4f",
-        cmap="coolwarm",
-        linewidths=0.5,
-        linecolor="black",
-        mask=heatmap_df.isnull(),
-        cbar_kws={'label': 'Score'},
-        vmin=0.0,
-        vmax=1.0
+        heatmap_df, annot=True, fmt=".4f", cmap="coolwarm",
+        linewidths=0.5, linecolor="black",
+        mask=heatmap_df.isnull(), cbar_kws={'label': 'Score'},
+        vmin=0.0, vmax=1.0
     )
     plt.title("CNV Inference Metrics per Event (Window-based)")
     plt.tight_layout()
