@@ -519,7 +519,7 @@ import seaborn as sns
 from scipy.sparse import issparse
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
-def evaluate_cnv_with_window_fixed_threshold(
+def evaluate_cnv_with_window(
     adata,
     celltype_key='cell_type',
     cnv_truth_key='simulated_cnvs',
