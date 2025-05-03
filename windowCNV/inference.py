@@ -104,11 +104,10 @@ def infercnv(
         )
     
     # Ensure chromosomes start with 'chr'
+    # Standardize chromosome format and filter to standard chromosomes
     adata.var['chromosome'] = adata.var['chromosome'].apply(
-        lambda x: x if str(x).startswith('chr') else f'chr{x}' if pd.notna(x) else x
+        lambda x: f'chr{x}' if pd.notna(x) and not str(x).startswith('chr') else x
     )
-    
-    # Keep only standard human chromosomes: chr1–chr22, chrX, chrY
     standard_chromosomes = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY']
     adata = adata[:, adata.var['chromosome'].isin(standard_chromosomes)].copy()
 
