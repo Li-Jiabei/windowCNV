@@ -11,9 +11,9 @@ import re
 import os
 
 # --- Plotting: Heatmap of inferred CNV per cell ---
-def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", save_dir="./figures", save=True):
+def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts"):
     """
-    Plot heatmaps of CNA footprint for a given cell type and chromosome, with option to save or just show.
+    Plot heatmaps of CNA footprint for a given cell type and chromosome.
 
     Parameters:
     -----------
@@ -29,34 +29,21 @@ def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", save_dir="./f
     layer : str, default='counts'
         Name of the layer to plot. Default is 'counts'.
 
-    save_dir : str, default='./figures'
-        Directory where the heatmaps will be saved if save=True. Must exist before running the function.
-
-    save : bool, default=True
-        If True, save the plots to save_dir. If False, just display the plots.
-
     Returns:
     --------
     None
-        Displays or saves two heatmaps:
+        Displays two heatmaps:
             - Raw counts heatmap (log-transformed)
             - Gene-scaled heatmap (standardized across genes)
     """
+    import scanpy as sc
     chromosome = str(chromosome)
-
-    cell_type_safe = cell_type.replace(' ', '_')
-
     adata_subset = adata[adata.obs['cell_type'] == cell_type].copy()
-
     adata_chr = adata_subset[:, adata_subset.var['chromosome'] == chromosome].copy()
 
     if adata_chr.n_obs == 0 or adata_chr.n_vars == 0:
         print(f"No data for cell type '{cell_type}' on chromosome {chromosome}.")
         return
-
-    if save:
-        os.makedirs(save_dir, exist_ok=True)
-        sc.settings.figdir = save_dir
 
     sc.pl.heatmap(
         adata_chr,
@@ -67,8 +54,7 @@ def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", save_dir="./f
         figsize=(20, 8),
         dendrogram=False,
         show_gene_labels=False,
-        save=f'_{cell_type_safe}_chr{chromosome}_rawcounts.png' if save else False,
-        show=not save
+        show=True
     )
 
     sc.pl.heatmap(
@@ -81,9 +67,9 @@ def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", save_dir="./f
         figsize=(20, 8),
         dendrogram=False,
         show_gene_labels=False,
-        save=f'_{cell_type_safe}_chr{chromosome}_scaled.png' if save else False,
-        show=not save
+        show=True
     )
+
 
 # --- Plotting: Groundtruth + Inferred CNV map ---
 import numpy as np
