@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse
 from anndata import AnnData
+from collections.abc import Sequence
 
 def _natural_sort(l: Sequence):
     """Natural sort without third party libraries.
