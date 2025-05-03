@@ -113,9 +113,12 @@ def infercnv(
         lambda x: f'chr{x}' if pd.notna(x) and not str(x).startswith('chr') else x
     )
     standard_chromosomes = [f'chr{i}' for i in range(1, 23)] + ['chrX', 'chrY']
-    adata = adata[:, adata.var['chromosome'].isin(standard_chromosomes)].copy()
-
-    print("✅ Step 1: Filtered genes:", adata.shape[1])
+    chrom_mask = adata.var['chromosome'].isin(standard_chromosomes)
+    
+    if not inplace:
+        adata = adata[:, chrom_mask].copy()
+    else:
+        adata._inplace_subset_var(chrom_mask)
 
     var_mask = adata.var["chromosome"].isnull()
     if np.sum(var_mask):
@@ -155,8 +158,6 @@ def infercnv(
     for i in tqdm(range(0, adata.shape[0], chunksize), desc="Running inferCNV chunks"):
         chunk_expr = expr[i : i + chunksize, :]
 
-        print(f"✅ Step 2: Chunk {i} shape:", chunk_expr.shape)
-
         chr_pos, chunk, _ = _infercnv_chunk(
             chunk_expr,
             var,
@@ -167,11 +168,7 @@ def infercnv(
             smooth,
             dynamic_threshold
         )
-
-
-        print(f"✅ Step 3: Chunk {i} result shape:", chunk.shape)
-
-        
+    
         if chr_pos_final is None:
             chr_pos_final = chr_pos  # use the first one
 
@@ -194,12 +191,6 @@ def infercnv(
         per_gene_mtx = None
 
     if inplace:
-
-
-
-        print(f"✅ Step 4: Saving CNV result to obsm: {res.shape}")
-        print(f"✅ Step 5: obsm keys now: {list(adata.obsm.keys())}")
-
 
         adata.obsm[f"X_{key_added}"] = res
         adata.uns[key_added] = {"chr_pos": chr_pos}
