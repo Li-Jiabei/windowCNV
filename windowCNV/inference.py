@@ -11,6 +11,7 @@ from infercnvpy._util import _ensure_array
 from .smoothing import _running_mean_by_chromosome
 from joblib import Parallel, delayed
 from scipy.sparse import issparse
+from .preprocess import _get_reference
 
 # --- CNV Inference Core ---
 
