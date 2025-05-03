@@ -534,8 +534,19 @@ def evaluate_cnv_with_window(
 
     # --- Percentile-based thresholds ---
     flat_vals = inferred.flatten()
-    gain_threshold = np.percentile(flat_vals, 100 - gain_percentile)
-    loss_threshold = np.percentile(flat_vals, loss_percentile)
+    pos_vals = flat_vals[flat_vals > 0]
+    neg_vals = flat_vals[flat_vals < 0]
+    
+    if len(pos_vals) > 0:
+        gain_threshold = np.percentile(pos_vals, 100 - gain_percentile)
+    else:
+        gain_threshold = np.inf  # Effectively disables gain detection
+    
+    if len(neg_vals) > 0:
+        loss_threshold = np.percentile(neg_vals, loss_percentile)
+    else:
+        loss_threshold = -np.inf  # Effectively disables loss detection
+    
     print(f"[INFO] Gain threshold: > {gain_threshold:.4f}")
     print(f"[INFO] Loss threshold: < {loss_threshold:.4f}")
 
