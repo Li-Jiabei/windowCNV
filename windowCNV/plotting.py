@@ -9,6 +9,7 @@ import scanpy as sc
 from scipy.sparse import issparse
 import re
 import os
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 # --- Plotting: Heatmap of inferred CNV per cell ---
 def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts"):
