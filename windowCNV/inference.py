@@ -90,13 +90,6 @@ def infercnv(
         Additionally not all genes will be included in the per gene CNV, due to the window size and step size not always being a multiple of
         the number of genes. Any genes not included in the per gene CNV will be filled with NaN.
         Note this will significantly increase the memory and computation time, it is recommended to decrease the chunksize to ~100 if this is set to True.
-    two_step_refinement
-        If True, perform an initial rough inferCNV run without a reference to select
-        low-variance cells as an internal reference. Useful for heterogeneous datasets
-        without a clearly annotated normal population.
-    low_variance_quantile
-        Quantile threshold (between 0 and 1) to select low-variance cells during two-step refinement.
-        Only used if `two_step_refinement=True`.
 
     Returns
     -------
