@@ -525,22 +525,21 @@ def evaluate_cnv_with_window(
     celltype_key='cell_type',
     cnv_truth_key='simulated_cnvs',
     cnv_inferred_key='cnv',
-    gain_percentile=95,   # e.g., top 5% = gain
-    loss_percentile=5     # e.g., bottom 5% = loss
+    gain_percentile=90,
+    loss_percentile=10
 ):
     inferred = adata.obsm[f"X_{cnv_inferred_key}"]
     if issparse(inferred):
         inferred = inferred.toarray()
 
-    # Flatten and calculate thresholds
+    # --- Percentile-based thresholds ---
     flat_vals = inferred.flatten()
-    gain_thresh = np.percentile(flat_vals[flat_vals > 0], gain_percentile)
-    loss_thresh = np.percentile(flat_vals[flat_vals < 0], loss_percentile)
+    gain_threshold = np.percentile(flat_vals, 100 - gain_percentile)
+    loss_threshold = np.percentile(flat_vals, loss_percentile)
+    print(f"[INFO] Gain threshold: > {gain_threshold:.4f}")
+    print(f"[INFO] Loss threshold: < {loss_threshold:.4f}")
 
-    print(f"[INFO] Gain threshold: > {gain_thresh:.4f}")
-    print(f"[INFO] Loss threshold: < {loss_thresh:.4f}")
-
-    # Prepare window lookup
+    # --- Existing unchanged logic ---
     chr_pos_dict = dict(sorted(adata.uns[cnv_inferred_key]["chr_pos"].items(), key=lambda x: x[1]))
     window_index_map = []
     chr_keys = list(chr_pos_dict.keys())
@@ -552,20 +551,20 @@ def evaluate_cnv_with_window(
             window_index_map.append((chrom, j))
     window_df = pd.DataFrame(window_index_map, columns=["chromosome", "matrix_idx"])
 
-    # Pattern and init
     pattern = r"(\w+):(\d+)-(\d+)\s+\(CN\s+(\d)\)"
     grouped_results = {}
+    unmatched_fp_keys = set()
     excluded_event_keys = set()
     printed_exclusions = set()
-    gt_event_set = set()
 
-    # Parse GT annotations
+    gt_event_set = set()
     for idx, row in adata.obs.iterrows():
         ct = row[celltype_key]
         annots = row.get(cnv_truth_key, "")
+        row_idx = adata.obs_names.get_loc(idx)
         if isinstance(annots, str) and annots.strip() != "":
             matches = re.findall(pattern, annots)
-            for chrom, _, _, cn in matches:
+            for chrom, start, end, cn in matches:
                 chrom = f"chr{chrom}" if not chrom.startswith("chr") else chrom
                 cn = int(cn)
                 if cn == 2:
@@ -573,16 +572,14 @@ def evaluate_cnv_with_window(
                 gt = "gain" if cn > 2 else "loss"
                 gt_event_set.add((ct, chrom, cn, gt))
 
-    # Score and classify
     for idx, row in adata.obs.iterrows():
         ct = row[celltype_key]
         annots = row.get(cnv_truth_key, "")
         row_idx = adata.obs_names.get_loc(idx)
 
-        # GT evaluation
         if isinstance(annots, str) and annots.strip() != "":
             matches = re.findall(pattern, annots)
-            for chrom, _, _, cn in matches:
+            for chrom, start, end, cn in matches:
                 chrom = f"chr{chrom}" if not chrom.startswith("chr") else chrom
                 cn = int(cn)
                 if cn == 2:
@@ -592,13 +589,15 @@ def evaluate_cnv_with_window(
                 key = (ct, chrom, cn, gt)
                 if len(win_idxs) == 0:
                     if key not in printed_exclusions:
+                        print(f"Excluded GT CNV event due to missing chromosome: {key}")
                         printed_exclusions.add(key)
                     excluded_event_keys.add(key)
                     continue
                 win_vals = inferred[row_idx, win_idxs]
-                score = win_vals.mean()
-                pred = "gain" if score > gain_thresh else (
-                    "loss" if score < loss_thresh else "no_change"
+                max_val = win_vals.max()
+                min_val = win_vals.min()
+                pred = "gain" if max_val > gain_threshold else (
+                    "loss" if min_val < loss_threshold else "no_change"
                 )
                 pred_label = int(pred == gt)
                 if key not in grouped_results:
@@ -606,15 +605,15 @@ def evaluate_cnv_with_window(
                 grouped_results[key]["true"].append(1)
                 grouped_results[key]["pred"].append(pred_label)
 
-        # FP evaluation
         for chrom in window_df["chromosome"].unique():
             win_idxs = window_df[window_df["chromosome"] == chrom]["matrix_idx"].values
             if len(win_idxs) == 0:
                 continue
             win_vals = inferred[row_idx, win_idxs]
-            score = win_vals.mean()
-            pred = "gain" if score > gain_thresh else (
-                "loss" if score < loss_thresh else "no_change"
+            max_val = win_vals.max()
+            min_val = win_vals.min()
+            pred = "gain" if max_val > gain_threshold else (
+                "loss" if min_val < loss_threshold else "no_change"
             )
             if pred == "no_change":
                 continue
