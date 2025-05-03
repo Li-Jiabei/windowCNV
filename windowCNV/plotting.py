@@ -593,11 +593,12 @@ def evaluate_cnv_with_window(
                     continue
                 win_vals = inferred[row_idx, win_idxs]
 
+                max_val = win_vals.max()
+                min_val = win_vals.min()
 
                 print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
 
-                max_val = win_vals.max()
-                min_val = win_vals.min()
+                
                 pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
                     "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
                 )
@@ -614,10 +615,12 @@ def evaluate_cnv_with_window(
                 continue
             win_vals = inferred[row_idx, win_idxs]
 
-            print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
-
             max_val = win_vals.max()
             min_val = win_vals.min()
+
+            print(f"‼️[DEBUG] [GT] max={max_val:.4f}, min={min_val:.4f}, thresh={thresh:.4f}")
+
+            
             pred = "gain" if abs(max_val) > abs(min_val) and max_val > thresh else (
                 "loss" if abs(max_val) <= abs(min_val) and min_val < -thresh else "no_change"
             )
