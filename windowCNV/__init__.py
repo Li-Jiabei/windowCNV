@@ -22,6 +22,7 @@ from .smoothing import (
 from .preprocess import (
     find_reference_candidates,
     _get_reference,
+    annotate_adata_with_chromosomes,
 )
 
 from .plotting import (
