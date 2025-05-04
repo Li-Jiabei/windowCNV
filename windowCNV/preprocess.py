@@ -102,3 +102,72 @@ def _get_reference(
 
     return reference
 
+
+
+def annotate_adata_with_chromosomes(adata, annotation_file):
+    """
+    Annotate AnnData object with chromosome and gene position information.
+
+    Parameters:
+    -----------
+    adata : AnnData
+        Your single-cell AnnData object.
+    annotation_file : str
+        Path to the downloaded Ensembl BioMart file (.txt) containing gene annotation.
+
+    Returns:
+    --------
+    adata : AnnData
+        Updated AnnData object with 'chromosome', 'start', and 'end' in adata.var.
+    """
+    # Ensure unique var names
+    adata.var_names_make_unique()
+
+    # Load gene annotation
+    gene_annot = pd.read_csv(annotation_file)
+
+    # Set 'Gene name' as index
+    if 'Gene name' not in gene_annot.columns:
+        raise ValueError("'Gene name' column not found in annotation file.")
+
+    gene_annot = gene_annot.set_index('Gene name')
+
+    # Drop duplicate gene names
+    gene_annot = gene_annot[~gene_annot.index.duplicated(keep='first')]
+
+    # Find common genes
+    common_genes = adata.var_names.intersection(gene_annot.index)
+
+    # Filter AnnData
+    adata = adata[:, common_genes].copy()
+
+    # Map chromosome and positions
+    adata.var['chromosome'] = gene_annot.loc[adata.var_names, 'Chromosome/scaffold name'].values
+    adata.var['start'] = gene_annot.loc[adata.var_names, 'Gene start (bp)'].values
+    adata.var['end'] = gene_annot.loc[adata.var_names, 'Gene end (bp)'].values
+
+    # Make chromosome a categorical variable
+    adata.var['chromosome'] = pd.Categorical(adata.var['chromosome'])
+
+    # Define proper chromosome order
+    chrom_order = [str(i) for i in range(1, 23)] + ['X', 'Y', 'MT']
+    chrom_order = [chrom for chrom in chrom_order if chrom in adata.var['chromosome'].unique()]
+
+    # Set chromosome order
+    adata.var['chromosome'] = pd.Categorical(adata.var['chromosome'], categories=chrom_order, ordered=True)
+
+    # Ensure 'start' is numeric
+    adata.var['start'] = pd.to_numeric(adata.var['start'], errors='coerce')
+
+    # DROP genes with NA in chromosome or start from both var and X
+    valid_genes = adata.var.dropna(subset=['chromosome', 'start']).index
+    adata = adata[:, valid_genes].copy()
+
+    # SORT genes
+    adata.var = adata.var.sort_values(['chromosome', 'start'])
+    adata = adata[:, adata.var.index].copy()
+
+    # Reorder the adata columns
+    adata = adata[:, adata.var.index].copy()
+
+    return adata
