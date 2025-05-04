@@ -11,6 +11,7 @@ import pandas as pd
 import random
 import scipy.sparse
 from collections import defaultdict
+from scipy.sparse import issparse
 
 # --- CNA generation utilities ---
 
@@ -226,8 +227,24 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         if len(cells_in_type) == 0 or n_total_cnas == 0:
             continue
         n_gain, n_hetero_del, n_homo_del = random_split_cnas(n_total_cnas, random_seed=random.randint(0, 99999))
+        
         sub_adata = adata[cells_in_type].copy()
-        sub_adata = simulate_cnas_basic(sub_adata, n_gain, n_hetero_del, n_homo_del, size_ranges=size_ranges, random_seed=random.randint(0, 99999), cna_effects=cna_effects)
+        sub_adata = simulate_cnas_basic(
+            sub_adata,
+            n_gain,
+            n_hetero_del,
+            n_homo_del,
+            size_ranges=size_ranges,
+            random_seed=random.randint(0, 99999),
+            cna_effects=cna_effects
+        )
+        
+        # Safely copy simulated expression back into original AnnData
+        adata_subset = adata[cells_in_type, :].copy()
+        adata_subset.X = sub_adata.X.copy() if not issparse(sub_adata.X) else sub_adata.X
+        adata[cells_in_type, :] = adata_subset
+        
+        # Copy simulated CNV labels
         simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs']
 
     adata.obs['simulated_cnvs'] = simulated_labels.astype('category')
