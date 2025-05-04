@@ -169,10 +169,18 @@ def simulate_cnas_basic(adata, n_gain, n_hetero_del, n_homo_del, size_ranges=Non
             continue
         sub_X = adata.X[affected_cells_idx, :][:, affected_genes_idx]
         factor = cna_effects[cna['type']]
+        
         if isinstance(adata.X, scipy.sparse.spmatrix):
-            adata.X[affected_cells_idx, :][:, affected_genes_idx] = sub_X.multiply(factor)
+            # Convert to LIL format for efficient row assignment
+            adata.X = adata.X.tolil()
+            for i, cell_idx in enumerate(affected_cells_idx):
+                adata.X[cell_idx, affected_genes_idx] = adata.X[cell_idx, affected_genes_idx] * factor
+            adata.X = adata.X.tocsr()  # Convert back to CSR after modification
+
         else:
-            adata.X[np.ix_(affected_cells_idx, affected_genes_idx)] = (sub_X if isinstance(sub_X, np.ndarray) else sub_X.toarray()) * factor
+            adata.X[np.ix_(affected_cells_idx, affected_genes_idx)] = \
+                (sub_X if isinstance(sub_X, np.ndarray) else sub_X.toarray()) * factor
+
         for cell in affected_cells:
             simulated_labels[cell] += ', ' + cna['label'] if simulated_labels[cell] else cna['label']
 
