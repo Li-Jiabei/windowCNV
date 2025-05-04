@@ -12,7 +12,7 @@ import os
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 # --- Plotting: Heatmap of inferred CNV per cell ---
-def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts"):
+def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", celltype_key="cell_type"):
     """
     Plot heatmaps of CNA footprint for a given cell type and chromosome.
 
@@ -25,21 +25,24 @@ def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts"):
         Chromosome to subset (e.g., '13' or 13).
 
     cell_type : str
-        Cell type to subset (must match adata.obs['cell_type'] entries).
+        Cell type to subset (must match adata.obs[celltype_key] entries).
 
     layer : str, default='counts'
-        Name of the layer to plot. Default is 'counts'.
+        Name of the layer to plot.
+
+    celltype_key : str, default='cell_type'
+        The name of the .obs column that contains cell type labels.
 
     Returns:
     --------
     None
-        Displays two heatmaps:
-            - Raw counts heatmap (log-transformed)
-            - Gene-scaled heatmap (standardized across genes)
     """
     import scanpy as sc
     chromosome = str(chromosome)
-    adata_subset = adata[adata.obs['cell_type'] == cell_type].copy()
+    if celltype_key not in adata.obs.columns:
+        raise ValueError(f"'{celltype_key}' not found in adata.obs.")
+
+    adata_subset = adata[adata.obs[celltype_key] == cell_type].copy()
     adata_chr = adata_subset[:, adata_subset.var['chromosome'] == chromosome].copy()
 
     if adata_chr.n_obs == 0 or adata_chr.n_vars == 0:
