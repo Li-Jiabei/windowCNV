@@ -150,7 +150,24 @@ def simulate_cnas_basic(adata, n_gain, n_hetero_del, n_homo_del, size_ranges=Non
 
         cna_type = cna_types_list.pop()
         label = f"{chr_selected}:{start_pos}-{end_pos} ({'CN 4' if cna_type == 'gain' else ('CN 1' if cna_type == 'hetero_del' else 'CN 0')})"
-        simulated_cnas.append({'chr': chr_selected, 'start': start_pos, 'end': end_pos, 'genes': chr_genes.index.tolist(), 'type': cna_type, 'label': label})
+
+        gene_ids = chr_genes[
+            (chr_genes['start'] >= start_pos) & (chr_genes['end'] <= end_pos)
+        ].index.tolist()
+        
+        if not gene_ids:
+            attempts += 1
+            continue  # Skip regions with no genes
+        
+        simulated_cnas.append({
+            'chr': chr_selected,
+            'start': start_pos,
+            'end': end_pos,
+            'genes': gene_ids,
+            'type': cna_type,
+            'label': label
+        })
+        
         existing_cnas.append((chr_selected, start_pos, end_pos))
         attempts = 0
 
@@ -185,6 +202,7 @@ def simulate_cnas_basic(adata, n_gain, n_hetero_del, n_homo_del, size_ranges=Non
             simulated_labels[cell] += ', ' + cna['label'] if simulated_labels[cell] else cna['label']
 
     adata.obs['simulated_cnvs'] = simulated_labels.astype('category')
+    assert adata.shape[1] == adata.var.shape[0], "Gene structure mismatch after simulation!"
     return adata
 
 # --- Cell-type-specific simulation ---
@@ -250,11 +268,15 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         # Convert obs_names (str) to positional indices (int)
         cell_idx = adata.obs_names.get_indexer(cells_in_type)
         
-        # Replace .X values
+        # Replace only expression values without altering gene structure
+        if sub_adata.shape[1] != adata.shape[1]:
+            raise ValueError("Mismatch: sub_adata has fewer genes than adata. This may corrupt structure!")
+        
+        # Use only values to avoid broadcasting issues
         if scipy.sparse.issparse(adata.X):
-            adata.X[cell_idx, :] = sub_adata.X
+            adata.X[cell_idx, :] = sub_adata.X[:, :].tocsc()
         else:
-            adata.X[cell_idx, :] = sub_adata.X
+            adata.X[cell_idx, :] = sub_adata.X[:, :]
         
         # Replace 'counts' layer if it exists
         if 'counts' in adata.layers and 'counts' in sub_adata.layers:
@@ -268,6 +290,7 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs'].astype(str).values
 
     adata.obs['simulated_cnvs'] = simulated_labels.astype('category')
+    assert adata.shape[1] == adata.var.shape[0], "Gene structure mismatch after simulation!"
     return adata
 
 # --- CNA summary utilities ---
