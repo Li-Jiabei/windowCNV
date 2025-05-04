@@ -247,20 +247,23 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
             cna_effects=cna_effects
         )
         
+        # Convert obs_names (str) to positional indices (int)
+        cell_idx = adata.obs_names.get_indexer(cells_in_type)
+        
         # Replace .X values
         if scipy.sparse.issparse(adata.X):
-            adata.X[cells_in_type, :] = sub_adata.X
+            adata.X[cell_idx, :] = sub_adata.X
         else:
-            adata.X[cells_in_type, :] = sub_adata.X
+            adata.X[cell_idx, :] = sub_adata.X
         
         # Replace 'counts' layer if it exists
         if 'counts' in adata.layers and 'counts' in sub_adata.layers:
-            adata.layers['counts'][cells_in_type, :] = sub_adata.layers['counts']
+            adata.layers['counts'][cell_idx, :] = sub_adata.layers['counts']
         
         # Replace simulated CNV labels if they exist
         if 'simulated_cnvs' in sub_adata.obs:
             adata.obs.loc[cells_in_type, 'simulated_cnvs'] = sub_adata.obs['simulated_cnvs'].values
-
+        
         # Copy simulated CNV labels
         simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs']
 
