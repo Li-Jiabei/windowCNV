@@ -262,10 +262,10 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         
         # Replace simulated CNV labels if they exist
         if 'simulated_cnvs' in sub_adata.obs:
-            adata.obs.loc[cells_in_type, 'simulated_cnvs'] = sub_adata.obs['simulated_cnvs'].values
+            adata.obs.loc[cells_in_type, 'simulated_cnvs'] = sub_adata.obs['simulated_cnvs'].astype(str).values
         
         # Copy simulated CNV labels
-        simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs']
+        simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs'].astype(str).values
 
     adata.obs['simulated_cnvs'] = simulated_labels.astype('category')
     return adata
