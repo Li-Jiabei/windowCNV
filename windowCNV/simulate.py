@@ -247,11 +247,20 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
             cna_effects=cna_effects
         )
         
-        # Safely copy simulated expression back into original AnnData
-        adata_subset = adata[cells_in_type, :].copy()
-        adata_subset.X = sub_adata.X.copy() if not issparse(sub_adata.X) else sub_adata.X
-        adata[cells_in_type, :] = adata_subset
+        # Replace .X values
+        if scipy.sparse.issparse(adata.X):
+            adata.X[cells_in_type, :] = sub_adata.X
+        else:
+            adata.X[cells_in_type, :] = sub_adata.X
         
+        # Replace 'counts' layer if it exists
+        if 'counts' in adata.layers and 'counts' in sub_adata.layers:
+            adata.layers['counts'][cells_in_type, :] = sub_adata.layers['counts']
+        
+        # Replace simulated CNV labels if they exist
+        if 'simulated_cnvs' in sub_adata.obs:
+            adata.obs.loc[cells_in_type, 'simulated_cnvs'] = sub_adata.obs['simulated_cnvs'].values
+
         # Copy simulated CNV labels
         simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs']
 
