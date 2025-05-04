@@ -127,6 +127,8 @@ def simulate_cnas_basic(adata, n_gain, n_hetero_del, n_homo_del, size_ranges=Non
     n_total_cnas = n_gain + n_hetero_del + n_homo_del
 
     while len(simulated_cnas) < n_total_cnas and attempts < 1000:
+        if not cna_types_list:
+            break
         size_label = 'small' if len(simulated_cnas) < n_total_cnas/3 else ('medium' if len(simulated_cnas) < 2*n_total_cnas/3 else 'large')
 
         chr_selected = np.random.choice(chromosomes_allowed)
