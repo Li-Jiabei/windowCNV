@@ -9,9 +9,20 @@ and summarization utilities.
 import numpy as np
 import pandas as pd
 import random
+import re
 import scipy.sparse
 from collections import defaultdict
 from scipy.sparse import issparse
+
+# --- Helper function ---
+def parse_simulated_cnv_string(entry):
+    """
+    Parses a string like '9:73859418-80302166 (CN 1), 1:30708468-39490701 (CN 1)'
+    into a list of tuples: [('9', 73859418, 80302166, 1), ...]
+    """
+    pattern = r'(\w+):(\d+)-(\d+)\s+\(CN\s+(\d+)\)'
+    matches = re.findall(pattern, entry)
+    return [(chrom, int(start), int(end), int(cn)) for chrom, start, end, cn in matches]
 
 # --- CNA generation utilities ---
 
@@ -272,7 +283,7 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         # Collect CNV event info from sub_adata
         if 'simulated_cnvs' in sub_adata.obs:
             for entry in sub_adata.obs['simulated_cnvs'].dropna():
-                for cna in eval(entry):  # safely parse list of tuples
+                for cna in parse_simulated_cnv_string(entry):
                     chr_name, start, end, cn = cna
                     summary_records.append({
                         'cell_type': celltype,
