@@ -309,33 +309,33 @@ def summarize_cna_regions(adata):
     Returns:
     --------
     result_df : pandas.DataFrame
-        DataFrame listing chromosome, start, end, and CNA label for each simulated region.
+        DataFrame listing chromosome, start, end, CNA label, and region length.
     """
+    import pandas as pd
+
     if 'simulated_cnvs' not in adata.obs.columns:
         raise ValueError("No 'simulated_cnvs' found in adata.obs.")
 
     cna_labels = set()
-    for labels in adata.obs['simulated_cnvs']:
+    for labels in adata.obs['simulated_cnvs'].fillna(''):
         if not labels:
             continue
         for label in labels.split(', '):
-            cna_labels.add(label)
+            if label.strip():  # skip empty strings
+                cna_labels.add(label.strip())
 
     records = []
     for label in cna_labels:
-        chrom_pos, cna_info = label.split(' (')
-        chrom, coords = chrom_pos.split(':')
-        start, end = coords.split('-')
-        start, end = int(start), int(end)
-        cna_info = cna_info.replace(')', '')
-        records.append({'chromosome': chrom, 'start': start, 'end': end, 'cna_label': cna_info})
-
-    if not records:
-        print("No CNA regions found.")
-        return pd.DataFrame()
-
-    result_df = pd.DataFrame(records)
-    return result_df.sort_values(['chromosome', 'start']).reset_index(drop=True)
+        try:
+            chrom_pos, cna_info = label.split(' (')
+            chrom, coords = chrom_pos.split(':')
+            start, end = map(int, coords.split('-'))
+            cna_info = cna_info.replace(')', '')
+            length = end - start + 1
+            records.append({
+                'chromosome': chrom,
+                'start': start,
+                'end': end
 
 def print_celltype_to_cnv_chromosomes(adata, celltype_col='cell_type', cnv_col='simulated_cnvs'):
     """
