@@ -336,6 +336,7 @@ def summarize_cna_regions(adata):
                 'chromosome': chrom,
                 'start': start,
                 'end': end
+            })
 
 def print_celltype_to_cnv_chromosomes(adata, celltype_col='cell_type', cnv_col='simulated_cnvs'):
     """
