@@ -250,6 +250,8 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
 
     simulated_labels = pd.Series('', index=adata.obs_names)
 
+    summary_records = []
+
     for celltype, n_total_cnas in celltype_cna_counts.items():
         cells_in_type = adata.obs_names[adata.obs[celltype_col] == celltype]
         if len(cells_in_type) == 0 or n_total_cnas == 0:
@@ -266,6 +268,18 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
             random_seed=random.randint(0, 99999),
             cna_effects=cna_effects
         )
+
+        # Collect CNV event info from sub_adata
+        if 'simulated_cnvs' in sub_adata.obs:
+            for entry in sub_adata.obs['simulated_cnvs'].dropna():
+                for cna in eval(entry):  # safely parse list of tuples
+                    chr_name, start, end, cn = cna
+                    summary_records.append({
+                        'cell_type': celltype,
+                        'chromosome': chr_name,
+                        'CN': cn,
+                        'size_bp': end - start
+                    })
         
         # Convert obs_names (str) to positional indices (int)
         cell_idx = adata.obs_names.get_indexer(cells_in_type)
@@ -290,6 +304,21 @@ def simulate_cnas_by_celltype(adata, celltype_col=None, celltype_cna_counts=None
         
         # Copy simulated CNV labels
         simulated_labels.loc[cells_in_type] = sub_adata.obs['simulated_cnvs'].astype(str).values
+
+    # Create summary DataFrame
+    if summary_records:
+        summary_df = pd.DataFrame(summary_records)
+        summary_stats = (
+            summary_df
+            .groupby(['cell_type', 'chromosome', 'CN'])
+            .agg(
+                num_events=('size_bp', 'count'),
+                avg_size_bp=('size_bp', 'mean')
+            )
+            .reset_index()
+        )
+        print("\n[Simulated CNV Summary]")
+        print(summary_stats)
 
     adata.obs['simulated_cnvs'] = simulated_labels.astype('category')
     assert adata.shape[1] == adata.var.shape[0], "Gene structure mismatch after simulation!"
