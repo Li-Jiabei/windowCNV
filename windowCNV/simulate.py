@@ -335,8 +335,16 @@ def summarize_cna_regions(adata):
             records.append({
                 'chromosome': chrom,
                 'start': start,
-                'end': end
+                'end': end,
+                'length': length,
+                'cna_label': cna_info
             })
+        except Exception as e:
+            print(f"Skipping malformed label: {label}. Error: {e}")
+            continue
+
+    return pd.DataFrame(records).sort_values(['chromosome', 'start']).reset_index(drop=True)
+
 
 def print_celltype_to_cnv_chromosomes(adata, celltype_col='cell_type', cnv_col='simulated_cnvs'):
     """
