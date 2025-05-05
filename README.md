@@ -63,7 +63,7 @@ These notebooks use the benchmarking dataset:
 
 ---
 
-* [**CNV simulation and windowCNV application**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%202B%20CNV%20simulation%20and%20WindowCNV.ipynb): Shows how to simulate CNVs and apply `windowCNV` inference.
+* [**CNV simulation and windowCNV application**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%202B.ipynb): Shows how to simulate CNVs and apply `windowCNV` inference.
 
 This notebook uses the dataset:
 [pbmc\_10k\_v3\_filtered\_feature\_bc\_matrix.h5](https://cf.10xgenomics.com/samples/cell-exp/3.0.0/pbmc_10k_v3/pbmc_10k_v3_filtered_feature_bc_matrix.h5)
