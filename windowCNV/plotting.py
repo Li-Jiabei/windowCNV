@@ -501,7 +501,7 @@ def evaluate_cnv_inference_aligned(
         df[["Precision", "Recall", "F1", "Accuracy"]],
         annot=True,
         fmt=".4f",
-        cmap="coolwarm",
+        cmap=sns.light_palette("red", as_cmap=True),
         vmin=0,
         vmax=1,
         linewidths=0.5,
@@ -679,7 +679,8 @@ def evaluate_cnv_with_window(
 
     plt.figure(figsize=(10, 1 * len(heatmap_df)))
     sns.heatmap(
-        heatmap_df, annot=True, fmt=".4f", cmap="coolwarm",
+        heatmap_df, annot=True, fmt=".4f",
+        cmap=sns.light_palette("red", as_cmap=True),
         linewidths=0.5, linecolor="black",
         mask=heatmap_df.isnull(), cbar_kws={'label': 'Score'},
         vmin=0.0, vmax=1.0
