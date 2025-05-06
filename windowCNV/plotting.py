@@ -79,12 +79,6 @@ def plot_cna_heatmap(adata, chromosome, cell_type, layer="counts", celltype_key=
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from scipy.sparse import issparse
-import pandas as pd
-
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import pandas as pd
 from anndata import AnnData
 
@@ -341,7 +335,7 @@ def plot_cnv_groundtruth_vs_inferred(
         cnv_split[:, 1::2] = loss_matrix
 
         vabs = np.max(np.abs(cnv_split))
-        norm_inf = TwoSlopeNorm(vcenter=0, vmin=0, vmax=vabs)
+        norm_inf = mcolors.TwoSlopeNorm(vcenter=0, vmin=-1e-6, vmax=vabs)
         cmap_inf = plt.cm.coolwarm
 
         im = axes[panel].imshow(cnv_split, aspect='auto', cmap=cmap_inf, norm=norm_inf, interpolation='nearest')
