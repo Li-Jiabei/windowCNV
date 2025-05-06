@@ -82,10 +82,6 @@ import matplotlib.colors as mcolors
 from scipy.sparse import issparse
 import pandas as pd
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-
 def plot_groundtruth_and_inferred_cnv(
     adata,
     cell_type: str,
@@ -93,24 +89,27 @@ def plot_groundtruth_and_inferred_cnv(
     cnv_truth_key: str = "simulated_cnvs",
     called_cnas_key: str = "called_cnas",
 ):
-    # Define chromosomes and double them for gain/loss split
+    """
+    Plot Groundtruth and Inferred CNV Maps for a given cell type.
+    Rows = cells, Columns = chromosomes (split into gain/loss halves).
+    """
+
     chromosomes = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
-    chromosomes_split = [f"{chr}_gain" for chr in chromosomes] + [f"{chr}_loss" for chr in chromosomes]
+    chrom_to_idx = {c: i for i, c in enumerate(chromosomes)}
+    chrom_split_labels = []
+    for c in chromosomes:
+        chrom_split_labels += [c, ""]  # gain (left), loss (right)
 
     cells_idx = adata.obs.index[adata.obs[celltype_key] == cell_type].tolist()
     if not cells_idx:
-        raise ValueError(f"No cells found for cell type '{cell_type}'.")
+        raise ValueError(f"No cells found for cell type '{cell_type}'")
 
     n_cells = len(cells_idx)
+    n_chroms = len(chromosomes)
 
-    fig, axes = plt.subplots(1, 2, figsize=(24, 7))
-
-    # ======== Groundtruth Frequency Matrix ========
-    gain_freq = np.zeros(len(chromosomes))  # CN=4
-    loss1_freq = np.zeros(len(chromosomes))  # CN=1
-    loss0_freq = np.zeros(len(chromosomes))  # CN=0
-
-    for cell_id in cells_idx:
+    # ---------------- Groundtruth ----------------
+    gt_matrix = np.zeros((n_cells, 2 * n_chroms))
+    for i, cell_id in enumerate(cells_idx):
         entry = adata.obs.loc[cell_id, cnv_truth_key]
         if pd.isna(entry) or entry.strip() == "":
             continue
@@ -121,69 +120,49 @@ def plot_groundtruth_and_inferred_cnv(
                 cn = int(cn_info.strip(' CN)').strip())
                 if not chrom.startswith("chr"):
                     chrom = f"chr{chrom}"
-                if chrom in chromosomes:
-                    idx = chromosomes.index(chrom)
-                    if cn == 0:
-                        loss0_freq[idx] += 1
+                if chrom in chrom_to_idx:
+                    j = chrom_to_idx[chrom]
+                    if cn == 4:
+                        gt_matrix[i, 2 * j] = 1  # gain column
+                    elif cn == 0:
+                        gt_matrix[i, 2 * j + 1] = 1  # loss column (dark blue)
                     elif cn == 1:
-                        loss1_freq[idx] += 1
-                    elif cn == 4:
-                        gain_freq[idx] += 1
+                        gt_matrix[i, 2 * j + 1] = 0.5  # loss column (light blue)
             except Exception:
                 continue
 
-    gain_frac = gain_freq / n_cells
-    loss1_frac = loss1_freq / n_cells
-    loss0_frac = loss0_freq / n_cells
-
-    # Construct matrix: rows = cells, cols = [chr1_gain, chr1_loss, ..., chrY_gain, chrY_loss]
-    gt_matrix = np.zeros((n_cells, len(chromosomes_split)))
-    for j, chr in enumerate(chromosomes):
-        gain_col = j
-        loss_col = j + len(chromosomes)
-        gt_matrix[:, gain_col] = gain_frac[j]
-        gt_matrix[:, loss_col] = loss0_frac[j] + 0.5 * loss1_frac[j]  # Darker for CN0
-
-    cmap_gt = mcolors.ListedColormap(["white", "#3399FF", "#000066", "red"])
-    norm_gt = mcolors.BoundaryNorm([0, 0.0001, 0.2, 0.5, 1.0], cmap_gt.N)
-
-    im1 = axes[0].imshow(gt_matrix, aspect='auto', cmap=cmap_gt, norm=norm_gt)
-    axes[0].set_xticks(np.arange(len(chromosomes_split)))
-    axes[0].set_xticklabels(chromosomes_split, rotation=90, fontsize=6)
-    axes[0].set_yticks([])
-    axes[0].set_title(f"Groundtruth CNA Map (Gain vs Loss) - {cell_type}")
-    plt.colorbar(im1, ax=axes[0], label="Fraction of Cells")
-
-    # ======== Inferred CNA Frequency Matrix ========
-    inferred_gain = np.zeros(len(chromosomes))
-    inferred_loss = np.zeros(len(chromosomes))
-
-    for cell_id in cells_idx:
+    # ---------------- Inferred ----------------
+    inf_matrix = np.zeros((n_cells, 2 * n_chroms))
+    for i, cell_id in enumerate(cells_idx):
         events = adata.obs.loc[cell_id, called_cnas_key]
-        if events is None or isinstance(events, float) and np.isnan(events):
+        if not isinstance(events, list):
             continue
         for chrom, start, stop, ctype in events:
-            if chrom in chromosomes:
-                idx = chromosomes.index(chrom)
+            if chrom in chrom_to_idx:
+                j = chrom_to_idx[chrom]
                 if ctype == "gain":
-                    inferred_gain[idx] += 1
+                    inf_matrix[i, 2 * j] = 1
                 elif ctype == "loss":
-                    inferred_loss[idx] += 1
+                    inf_matrix[i, 2 * j + 1] = 1
 
-    inferred_gain_frac = inferred_gain / n_cells
-    inferred_loss_frac = inferred_loss / n_cells
+    # ---------------- Plotting ----------------
+    fig, axes = plt.subplots(1, 2, figsize=(24, 6))
+    cmap = mcolors.ListedColormap(["#000066", "#3399FF", "white", "red"])
+    norm = mcolors.BoundaryNorm([-0.1, 0.1, 0.6, 0.9, 1.1], cmap.N)
 
-    inf_matrix = np.zeros((n_cells, len(chromosomes_split)))
-    for j, chr in enumerate(chromosomes):
-        inf_matrix[:, j] = inferred_gain_frac[j]
-        inf_matrix[:, j + len(chromosomes)] = inferred_loss_frac[j]
+    im1 = axes[0].imshow(gt_matrix, aspect='auto', cmap=cmap, norm=norm)
+    axes[0].set_title(f"Groundtruth CNA Map (Gain vs Loss) - {cell_type}")
+    axes[0].set_xticks(np.arange(0.5, 2 * n_chroms, 2))
+    axes[0].set_xticklabels(chromosomes, rotation=90, fontsize=6)
+    axes[0].set_yticks([])
+    plt.colorbar(im1, ax=axes[0], label="CNA Event (Groundtruth)")
 
-    im2 = axes[1].imshow(inf_matrix, aspect='auto', cmap=cmap_gt, norm=norm_gt)
-    axes[1].set_xticks(np.arange(len(chromosomes_split)))
-    axes[1].set_xticklabels(chromosomes_split, rotation=90, fontsize=6)
-    axes[1].set_yticks([])
+    im2 = axes[1].imshow(inf_matrix, aspect='auto', cmap=cmap, norm=norm)
     axes[1].set_title(f"Inferred CNA Map (Gain vs Loss) - {cell_type}")
-    plt.colorbar(im2, ax=axes[1], label="Fraction of Cells")
+    axes[1].set_xticks(np.arange(0.5, 2 * n_chroms, 2))
+    axes[1].set_xticklabels(chromosomes, rotation=90, fontsize=6)
+    axes[1].set_yticks([])
+    plt.colorbar(im2, ax=axes[1], label="CNA Event (Inferred)")
 
     plt.suptitle(f"Groundtruth vs Inferred CNA Maps - {cell_type}", fontsize=18)
     plt.tight_layout()
