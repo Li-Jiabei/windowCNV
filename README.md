@@ -87,14 +87,14 @@ The file was generated using [Ensembl BioMart](https://www.ensembl.org/biomart/m
 ---
 
 ### PSC scRNA-seq data with previously reported PSC CNAs
-* [windowCNV on PBMC-4k with CAS CNA Labels](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20PBMC_4k_10x.ipynb): Applies windowCNV to a 10x PBMC dataset with CAS-based high-confidence labels.
+* [**windowCNV on PBMC-4k with CAS CNA Labels**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20PBMC_4k_10x.ipynb): Applies windowCNV to a 10x PBMC dataset with CAS-based high-confidence labels.
 
 This notebook uses the dataset: [SCP2745_high_conf_CAS_cell_types.h5ad](https://singlecell.broadinstitute.org/single_cell/study/SCP2745/pbmc-4k-10x-h5ad-with-cas-results#study-download)
 
-* [Cecelia's](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TNBC.ipynb): description
+* [**Cecelia's**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TNBC.ipynb): description
 
 This notebook uses the dataset: [GSM4476486_combined_UMIcount_CellTypes_TNBC1.txt.gz](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSM4476486&format=file&file=GSM4476486%5Fcombined%5FUMIcount%5FCellTypes%5FTNBC1%2Etxt%2Egz)
 
-* [Krishna's](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TCell.ipynb): description
+* [**Krishna's**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TCell.ipynb): description
 
 This notebook uses the dataset: [GSM7744300_GUIDEvsNT_CHR14_RESULTS.txt](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSM7744300&format=file&file=GSM7744300%5FGUIDEvsNT%5FCHR14%5FRESULTS%2Etxt%2Egz) and [gencode.v38.annotation.gtf](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gtf.gz)
