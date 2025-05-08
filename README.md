@@ -91,10 +91,10 @@ The file was generated using [Ensembl BioMart](https://www.ensembl.org/biomart/m
 
 This notebook uses the dataset: [SCP2745_high_conf_CAS_cell_types.h5ad](https://singlecell.broadinstitute.org/single_cell/study/SCP2745/pbmc-4k-10x-h5ad-with-cas-results#study-download)
 
-* [**windowCNV on TNBC iPSC-derived scRNA-seq data**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TNBC.ipynb): Applies windowCNV to a triple-negative breast cancer (TNBC) iPSC dataset to identify large-scale CNA patterns across annotated cell types.
+* [**windowCNV on TNBC iPSC-derived scRNA-seq data**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TNBC.ipynb): Applies windowCNV to a triple-negative breast cancer (TNBC) iPSC dataset.
 
 This notebook uses the dataset: [GSM4476486_combined_UMIcount_CellTypes_TNBC1.txt.gz](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSM4476486&format=file&file=GSM4476486%5Fcombined%5FUMIcount%5FCellTypes%5FTNBC1%2Etxt%2Egz)
 
-* [**Krishna's**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TCell.ipynb): description
+* [**windowCNV on CRISPR-edited T cell iPSC data**](https://github.com/Li-Jiabei/windowCNV/blob/main/windowCNV/tests/Task%203%20WindowCNV_TCell.ipynb): Applies windowCNV to T cells derived from iPSCs edited with CRISPR.
 
 This notebook uses the dataset: [GSM7744300_GUIDEvsNT_CHR14_RESULTS.txt](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSM7744300&format=file&file=GSM7744300%5FGUIDEvsNT%5FCHR14%5FRESULTS%2Etxt%2Egz) and [gencode.v38.annotation.gtf](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gtf.gz)
