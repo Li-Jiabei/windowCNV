@@ -2,7 +2,7 @@
 
 **windowCNV** is a window-based tool for detecting copy number alterations (CNAs) from single-cell RNA-seq data. Inspired by [infercnvpy](https://github.com/icbi-lab/infercnvpy), it extends its functionality with flexible CNA simulation, inference, and evaluation. The package supports cell type–aware analysis and event-level performance metrics.
 
-> **Note:** This package is experimental. CNA classification accuracy in real-world datasets may be limited. Feedback and contributions are welcome.
+> **Note:** This package is experimental. Though benchmarked against inferCNVpy on simulated and real datasets, CNA classification accuracy in real-world datasets may be limited. Feedback and contributions are welcome.
 
 ---
 
